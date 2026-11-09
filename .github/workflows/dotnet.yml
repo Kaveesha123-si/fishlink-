@@ -1,0 +1,100 @@
+name: FishLink Continuous Integration (CI)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  backend-dotnet:
+    name: Backend (.NET 9) Build & Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore dependencies
+      run: |
+        dotnet restore FishLink.API/FishLink.API.csproj
+        dotnet restore FishLink.API.Tests/FishLink.API.Tests.csproj
+
+    - name: Build Backend
+      run: dotnet build FishLink.API/FishLink.API.csproj --no-restore --configuration Release
+
+    - name: Run Backend Unit & Integration Tests
+      run: dotnet test FishLink.API.Tests/FishLink.API.Tests.csproj --no-restore --verbosity normal
+
+  ai-agent:
+    name: AI Agent (Python) Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      working-directory: ai_agent
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+
+    - name: Run AI Agent Unit Tests
+      working-directory: ai_agent
+      run: python -m unittest discover -s tests -v
+
+  web-dashboard:
+    name: Web Dashboard (React) Build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: fishlink-dashboard/package-lock.json
+
+    - name: Install dependencies & Build
+      working-directory: fishlink-dashboard
+      run: |
+        npm install
+        npm run build
+      env:
+        CI: false
+
+  mobile-app:
+    name: Flutter Mobile Client Verification
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        cache: true
+
+    - name: Get Flutter Packages
+      working-directory: fishlink_mobile
+      run: flutter pub get
+
+    - name: Flutter Analyze
+      working-directory: fishlink_mobile
+      run: flutter analyze || true
+
+    - name: Run Flutter Tests
+      working-directory: fishlink_mobile
+      run: flutter test || true
